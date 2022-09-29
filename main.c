@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
         PQExpBufferData str;
         initPQExpBuffer(&str);
         appendPQExpBuffer(&str, "%d", count);
-        if (PQExpBufferDataBroken(str)) { FATAL("PQExpBufferDataBroken"); return -1; }
+        if (PQExpBufferDataBroken(str)) { FATAL("PQExpBufferDataBroken"); termPQExpBuffer(&str); return -1; }
         /*int length = sizeof("%d") - 2;
         for (int number = count; number /= 10; length++);
         char str[length + 1];
@@ -96,9 +96,9 @@ int main(int argc, char **argv) {
     if ((error = uv_loop_init(&loop))) { FATAL("uv_loop_init"); return error; } // int uv_loop_init(uv_loop_t* loop)
     /*uv_tcp_t tcp;
     if ((error = uv_tcp_init(&loop, &tcp))) { FATAL("uv_tcp_init"); return error; } // int uv_tcp_init(uv_loop_t* loop, uv_tcp_t* handle)
-    char *webserver_port = getenv("WEBSERVER_PORT"); // char *getenv(const char *name);
+    char *ddos_port = getenv("DDOS_PORT"); // char *getenv(const char *name);
     int port = 8080;
-    if (webserver_port) port = atoi(webserver_port);
+    if (ddos_port) port = atoi(ddos_port);
     struct sockaddr_in addr;
     const char *ip = "0.0.0.0";
     if ((error = uv_ip4_addr(ip, port, &addr))) { FATAL("uv_ip4_addr(%s:%i)", ip, port); return error; } // int uv_ip4_addr(const char* ip, int port, struct sockaddr_in* addr)
@@ -106,10 +106,10 @@ int main(int argc, char **argv) {
     uv_os_sock_t sock;
     if ((error = uv_fileno((const uv_handle_t*)&tcp, (uv_os_fd_t *)&sock))) { FATAL("uv_fileno"); return error; } // int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd)
     */int thread_count = count;
-    char *webserver_thread_count = getenv("WEBSERVER_THREAD_COUNT"); // char *getenv(const char *name);
-    if (webserver_thread_count) thread_count = atoi(webserver_thread_count);
+    char *ddos_thread_count = getenv("DDOS_THREAD_COUNT"); // char *getenv(const char *name);
+    if (ddos_thread_count) thread_count = atoi(ddos_thread_count);
     if (thread_count < 1) thread_count = count;
-    if (thread_count == 1) server_on_start((void *)&thread_count);
+    if (thread_count == 1) server_on_start((void *)(long)thread_count);
     else {
         uv_thread_t tid[thread_count];
         for (int i = 0; i < thread_count; i++) if ((error = uv_thread_create(&tid[i], server_on_start, (void *)(long)i))) { FATAL("uv_thread_create"); return error; } // int uv_thread_create(uv_thread_t* tid, uv_thread_cb entry, void* arg)
