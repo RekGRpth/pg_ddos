@@ -1,7 +1,5 @@
-#include <errno.h>
 #include <postgresql/libpq-fe.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
