@@ -66,9 +66,9 @@ static void ddos_select(ddos_t *ddos) {
 
 static void ddos_success(ddos_t *ddos, PGresult *res) {
 //    DEBUG("res=%p, ddos=%p\n", res, ddos);
-    char *value;
-    if ((value = PQcmdStatus(res)) && strlen(value)) DEBUG("PGRES_TUPLES_OK and %s", value);
-    else DEBUG("PGRES_TUPLES_OK");
+    //char *value;
+    //if ((value = PQcmdStatus(res)) && strlen(value)) DEBUG("PGRES_TUPLES_OK and %s", value);
+    //else DEBUG("PGRES_TUPLES_OK");
     static PQprintOpt po = {
         .header = true,
         .align = true,
@@ -141,6 +141,7 @@ static void ddos_on_poll(uv_poll_t *handle, int status, int events) { // void (*
         for (PGnotify *notify; (notify = PQnotifies(ddos->conn)); PQfreemem(notify)) { // PGnotify *PQnotifies(PGconn *conn); void PQfreemem(void *ptr)
             DEBUG("Asynchronous notification \"%s\" with payload \"%s\" received from server process with PID %d.", notify->relname, notify->extra, notify->be_pid);
         }
+        ddos_select(ddos);
         //if (ddos_push(ddos)) FATAL("ddos_push\n");
     }
     //if (events & UV_WRITABLE) switch (PQflush(ddos->conn)) { // int PQflush(PGconn *conn);
@@ -154,7 +155,7 @@ static void ddos_on_start(void *arg) { // void (*uv_thread_cb)(void* arg)
     //DEBUG("arg");
     //uv_loop_t *loop = arg;
     char *conninfo = getenv("DDOS_ddos_CONNINFO"); // char *getenv(const char *name)
-    if (!conninfo) conninfo = "postgresql://localhost?application_name=ddos";
+    if (!conninfo) conninfo = "postgresql://";
     char *ddos_ddos_count = getenv("DDOS_ddos_COUNT"); // char *getenv(const char *name);
     int count = 1;
     if (ddos_ddos_count) count = atoi(ddos_ddos_count);
