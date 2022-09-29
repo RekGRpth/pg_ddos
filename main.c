@@ -105,9 +105,9 @@ static void ddos_on_poll(uv_poll_t *handle, int status, int events) {
 }
 
 static void ddos_on_start(void *arg) {
-    char *conninfo = getenv("DDOS_ddos_CONNINFO");
-    if (!conninfo) conninfo = "postgresql://";
-    char *ddos_ddos_count = getenv("DDOS_ddos_COUNT");
+    char *conninfo = getenv("DDOS_CONNINFO");
+    if (!conninfo) conninfo = "";
+    char *ddos_ddos_count = getenv("DDOS_COUNT");
     int count = 1;
     if (ddos_ddos_count) count = atoi(ddos_ddos_count);
     if (count < 1) count = 1;
