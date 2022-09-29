@@ -1,10 +1,12 @@
-#include <errno.h>  // errno
+#include <errno.h> // errno
 #include <stdio.h> // fprintf, stdout
 #include <stdlib.h> // malloc, realloc, calloc, free, getenv, setenv, atoi, size_t
 #include <string.h> // strerror
 #include <sys/syscall.h> // SYS_gettid
 #include <unistd.h> // syscall
 #include <uv.h> // uv_*
+
+//#include <postgresql/internal/pqexpbuffer.h>
 
 /*#define FORMAT_0(fmt, ...) "%s(%s:%d): %s", __func__, __FILE__, __LINE__, fmt
 #define FORMAT_1(fmt, ...) "%s(%s:%d): " fmt,  __func__, __FILE__, __LINE__
@@ -33,6 +35,22 @@
 #define FATAL(fmt, ...) fprintf(stderr, "FATAL:%lu:%s:%d:%s:" fmt "\n", syscall(SYS_gettid), __FILE__, __LINE__, __func__, ##__VA_ARGS__)
 //#define FATAL(fmt, ...) fprintf(stderr, "FATAL:%lu:%s:%d:%s(%i)%s:" fmt, syscall(SYS_gettid), __FILE__, __LINE__, __func__, errno, strerror(errno), ##__VA_ARGS__)
 
+typedef struct PQExpBufferData
+{
+	char	   *data;
+	size_t		len;
+	size_t		maxlen;
+} PQExpBufferData;
+
+typedef PQExpBufferData *PQExpBuffer;
+
+extern void initPQExpBuffer(PQExpBuffer str);
+extern void termPQExpBuffer(PQExpBuffer str);
+extern void appendPQExpBuffer(PQExpBuffer str, const char *fmt,...);
+
+#define PQExpBufferDataBroken(buf)	\
+	((buf).maxlen == 0)
+
 static void server_on_start(void *arg) { // void (*uv_thread_cb)(void* arg)
     DEBUG("arg=%i", (int)(long)arg);
     uv_loop_t loop;
@@ -56,18 +74,23 @@ server_free:
 int main(int argc, char **argv) {
     for (int i = 0; i < argc; i++) DEBUG("argv[%i]=%s", i, argv[i]);
     int error = 0;
-    if ((error = uv_replace_allocator(malloc, realloc, calloc, free))) { FATAL("uv_replace_allocator = %s", uv_strerror(error)); return error; } // int uv_replace_allocator(uv_malloc_func malloc_func, uv_realloc_func realloc_func, uv_calloc_func calloc_func, uv_free_func free_func)
+    //if ((error = uv_replace_allocator(malloc, realloc, calloc, free))) { FATAL("uv_replace_allocator = %s", uv_strerror(error)); return error; } // int uv_replace_allocator(uv_malloc_func malloc_func, uv_realloc_func realloc_func, uv_calloc_func calloc_func, uv_free_func free_func)
     int count;
     uv_cpu_info_t *cpu_infos;
     if ((error = uv_cpu_info(&cpu_infos, &count))) { FATAL("uv_cpu_info = %s", uv_strerror(error)); return error; } // int uv_cpu_info(uv_cpu_info_t** cpu_infos, int* count)
     uv_free_cpu_info(cpu_infos, count); // void uv_free_cpu_info(uv_cpu_info_t* cpu_infos, int count)
     char *uv_threadpool_size = getenv("UV_THREADPOOL_SIZE"); // char *getenv(const char *name);
     if (!uv_threadpool_size) {
-        int length = sizeof("%d") - 2;
+        PQExpBufferData str;
+        initPQExpBuffer(&str);
+        appendPQExpBuffer(&str, "%d", count);
+        if (PQExpBufferDataBroken(str)) { FATAL("PQExpBufferDataBroken"); return -1; }
+        /*int length = sizeof("%d") - 2;
         for (int number = count; number /= 10; length++);
         char str[length + 1];
         if ((error = snprintf(str, length + 1, "%d", count) - length)) { FATAL("snprintf"); return error; } // int snprintf(char *str, size_t size, const char *format, ...)
-        if ((error = setenv("UV_THREADPOOL_SIZE", str, 1))) { FATAL("setenv"); return error; } // int setenv(const char *name, const char *value, int overwrite)
+        */if ((error = setenv("UV_THREADPOOL_SIZE", str.data, 1))) { FATAL("setenv = %s", strerror(error)); termPQExpBuffer(&str); return error; } // int setenv(const char *name, const char *value, int overwrite)
+        termPQExpBuffer(&str);
     }
     uv_loop_t loop;
     if ((error = uv_loop_init(&loop))) { FATAL("uv_loop_init"); return error; } // int uv_loop_init(uv_loop_t* loop)
