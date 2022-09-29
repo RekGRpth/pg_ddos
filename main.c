@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
         termPQExpBuffer(&str);
     }
     uv_loop_t loop;
-    if ((error = uv_loop_init(&loop))) { FATAL("uv_loop_init"); return error; } // int uv_loop_init(uv_loop_t* loop)
+    if ((error = uv_loop_init(&loop))) { FATAL("uv_loop_init = %s", uv_strerror(error)); return error; } // int uv_loop_init(uv_loop_t* loop)
     /*uv_tcp_t tcp;
     if ((error = uv_tcp_init(&loop, &tcp))) { FATAL("uv_tcp_init"); return error; } // int uv_tcp_init(uv_loop_t* loop, uv_tcp_t* handle)
     char *ddos_port = getenv("DDOS_PORT"); // char *getenv(const char *name);
@@ -112,9 +112,9 @@ int main(int argc, char **argv) {
     if (thread_count == 1) server_on_start((void *)(long)thread_count);
     else {
         uv_thread_t tid[thread_count];
-        for (int i = 0; i < thread_count; i++) if ((error = uv_thread_create(&tid[i], server_on_start, (void *)(long)i))) { FATAL("uv_thread_create"); return error; } // int uv_thread_create(uv_thread_t* tid, uv_thread_cb entry, void* arg)
-        for (int i = 0; i < thread_count; i++) if ((error = uv_thread_join(&tid[i]))) { FATAL("uv_thread_join"); return error; } // int uv_thread_join(uv_thread_t *tid)
+        for (int i = 0; i < thread_count; i++) if ((error = uv_thread_create(&tid[i], server_on_start, (void *)(long)i))) { FATAL("uv_thread_create = %s", uv_strerror(error)); return error; } // int uv_thread_create(uv_thread_t* tid, uv_thread_cb entry, void* arg)
+        for (int i = 0; i < thread_count; i++) if ((error = uv_thread_join(&tid[i]))) { FATAL("uv_thread_join = %s", uv_strerror(error)); return error; } // int uv_thread_join(uv_thread_t *tid)
     }
-    if ((error = uv_loop_close(&loop))) { FATAL("uv_loop_close"); return error; } // int uv_loop_close(uv_loop_t* loop)
+    if ((error = uv_loop_close(&loop))) { FATAL("uv_loop_close = %s", uv_strerror(error)); return error; } // int uv_loop_close(uv_loop_t* loop)
     return error;
 }
