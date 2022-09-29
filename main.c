@@ -57,16 +57,16 @@ int main(int argc, char **argv) {
     for (int i = 0; i < argc; i++) DEBUG("argv[%i]=%s", i, argv[i]);
     int error = 0;
     if ((error = uv_replace_allocator(malloc, realloc, calloc, free))) { FATAL("uv_replace_allocator = %s", uv_strerror(error)); return error; } // int uv_replace_allocator(uv_malloc_func malloc_func, uv_realloc_func realloc_func, uv_calloc_func calloc_func, uv_free_func free_func)
-    int cpu_count;
+    int count;
     uv_cpu_info_t *cpu_infos;
-    if ((error = uv_cpu_info(&cpu_infos, &cpu_count))) { FATAL("uv_cpu_info = %s", uv_strerror(error)); return error; } // int uv_cpu_info(uv_cpu_info_t** cpu_infos, int* count)
-    uv_free_cpu_info(cpu_infos, cpu_count); // void uv_free_cpu_info(uv_cpu_info_t* cpu_infos, int count)
+    if ((error = uv_cpu_info(&cpu_infos, &count))) { FATAL("uv_cpu_info = %s", uv_strerror(error)); return error; } // int uv_cpu_info(uv_cpu_info_t** cpu_infos, int* count)
+    uv_free_cpu_info(cpu_infos, count); // void uv_free_cpu_info(uv_cpu_info_t* cpu_infos, int count)
     char *uv_threadpool_size = getenv("UV_THREADPOOL_SIZE"); // char *getenv(const char *name);
     if (!uv_threadpool_size) {
         int length = sizeof("%d") - 2;
-        for (int number = cpu_count; number /= 10; length++);
+        for (int number = count; number /= 10; length++);
         char str[length + 1];
-        if ((error = snprintf(str, length + 1, "%d", cpu_count) - length)) { FATAL("snprintf"); return error; } // int snprintf(char *str, size_t size, const char *format, ...)
+        if ((error = snprintf(str, length + 1, "%d", count) - length)) { FATAL("snprintf"); return error; } // int snprintf(char *str, size_t size, const char *format, ...)
         if ((error = setenv("UV_THREADPOOL_SIZE", str, 1))) { FATAL("setenv"); return error; } // int setenv(const char *name, const char *value, int overwrite)
     }
     uv_loop_t loop;
@@ -82,10 +82,10 @@ int main(int argc, char **argv) {
     if ((error = uv_tcp_bind(&tcp, (const struct sockaddr *)&addr, 0))) { FATAL("uv_tcp_bind(%s:%i)", ip, port); return error; } // int uv_tcp_bind(uv_tcp_t* handle, const struct sockaddr* addr, unsigned int flags)
     uv_os_sock_t sock;
     if ((error = uv_fileno((const uv_handle_t*)&tcp, (uv_os_fd_t *)&sock))) { FATAL("uv_fileno"); return error; } // int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd)
-    */int thread_count = cpu_count;
+    */int thread_count = count;
     char *webserver_thread_count = getenv("WEBSERVER_THREAD_COUNT"); // char *getenv(const char *name);
     if (webserver_thread_count) thread_count = atoi(webserver_thread_count);
-    if (thread_count < 1) thread_count = cpu_count;
+    if (thread_count < 1) thread_count = count;
     if (thread_count == 1) server_on_start((void *)&thread_count);
     else {
         uv_thread_t tid[thread_count];
