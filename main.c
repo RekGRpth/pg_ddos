@@ -54,7 +54,8 @@ extern void appendPQExpBuffer(PQExpBuffer str, const char *fmt,...);
 static void server_on_start(void *arg) { // void (*uv_thread_cb)(void* arg)
     DEBUG("arg=%i", (int)(long)arg);
     uv_loop_t loop;
-    if (uv_loop_init(&loop)) { FATAL("uv_loop_init"); return; } // int uv_loop_init(uv_loop_t* loop)
+    int error;
+    if ((error = uv_loop_init(&loop))) { FATAL("uv_loop_init = %s", uv_strerror(error)); return; } // int uv_loop_init(uv_loop_t* loop)
     /*server_t *server = server_init(&loop);
     if (!server) { FATAL("server_init"); return; }
     uv_tcp_t tcp;
@@ -65,9 +66,8 @@ static void server_on_start(void *arg) { // void (*uv_thread_cb)(void* arg)
     if (sysctl(name, nlen / sizeof(int), (void *)oldval, &oldlenp, NULL, 0)) { FATAL("sysctl"); server_free(server); return; } // int sysctl (int *name, int nlen, void *oldval, size_t *oldlenp, void *newval, size_t newlen)
     int backlog = SOMAXCONN; if (oldlenp > 0) backlog = oldval[0];
     if (uv_listen((uv_stream_t *)&tcp, backlog, client_on_connect)) { FATAL("uv_listen"); server_free(server); return; } // int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb)
-    */if (uv_run(&loop, UV_RUN_DEFAULT)) { FATAL("uv_run"); goto server_free; } // int uv_run(uv_loop_t* loop, uv_run_mode mode)
-    if (uv_loop_close(&loop)) { FATAL("uv_loop_close"); goto server_free; } // int uv_loop_close(uv_loop_t* loop)
-server_free:
+    */if ((error = uv_run(&loop, UV_RUN_DEFAULT))) { FATAL("uv_run = %s", uv_strerror(error)); return; } // int uv_run(uv_loop_t* loop, uv_run_mode mode)
+    if ((error = uv_loop_close(&loop))) { FATAL("uv_loop_close = %s", uv_strerror(error)); return; } // int uv_loop_close(uv_loop_t* loop)
     //server_free(server);
 }
 
