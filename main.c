@@ -48,6 +48,7 @@ static void ddos_on_start(void *arg) { // void (*uv_thread_cb)(void* arg)
     for (int i = 0; i < count; i++) {
         if (!(postgres = malloc(sizeof(*postgres)))) { ERROR("!malloc"); continue; }
         if (PQstatus(postgres->conn = PQconnectStart(conninfo)) == CONNECTION_BAD) { ERROR("PQstatus = CONNECTION_BAD and %s", PQerrorMessage(postgres->conn)); goto PQfinish; }
+        if (PQsetnonblocking(postgres->conn, 1) == -1) { ERROR("PQsetnonblocking == -1 and %s", PQerrorMessage(postgres->conn)); goto PQfinish; }
         if ((postgres_sock = PQsocket(postgres->conn)) < 0) { ERROR("PQsocket < 0"); goto PQfinish; }
         if ((error = uv_poll_init_socket(loop, &postgres->poll, postgres_sock))) { ERROR("uv_poll_init_socket = %s", uv_strerror(error)); goto PQfinish; } // int uv_poll_init_socket(uv_loop_t* loop, uv_poll_t* handle, uv_os_sock_t socket)
         postgres->poll.data = postgres;
