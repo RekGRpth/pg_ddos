@@ -10,22 +10,6 @@
 #define ERROR(fmt, ...) fprintf(stderr, "ERROR:%lu:%s:%d:%s:" fmt, syscall(SYS_gettid), __FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define FATAL(fmt, ...) fprintf(stderr, "FATAL:%lu:%s:%d:%s:" fmt, syscall(SYS_gettid), __FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
-typedef struct PQExpBufferData
-{
-	char	   *data;
-	size_t		len;
-	size_t		maxlen;
-} PQExpBufferData;
-
-typedef PQExpBufferData *PQExpBuffer;
-
-extern void initPQExpBuffer(PQExpBuffer str);
-extern void termPQExpBuffer(PQExpBuffer str);
-extern void appendPQExpBuffer(PQExpBuffer str, const char *fmt,...);
-
-#define PQExpBufferDataBroken(buf)	\
-	((buf).maxlen == 0)
-
 typedef struct {
     uv_poll_t poll;
     PGconn *conn;
@@ -135,15 +119,6 @@ int main(int argc, char **argv) {
     uv_cpu_info_t *cpu_infos;
     if ((rc = uv_cpu_info(&cpu_infos, &count))) { FATAL("uv_cpu_info = %s\n", uv_strerror(rc)); return rc; }
     uv_free_cpu_info(cpu_infos, count);
-    char *uv_threadpool_size = getenv("UV_THREADPOOL_SIZE");
-    if (!uv_threadpool_size) {
-        PQExpBufferData str;
-        initPQExpBuffer(&str);
-        appendPQExpBuffer(&str, "%d", count);
-        if (PQExpBufferDataBroken(str)) { FATAL("PQExpBufferDataBroken\n"); termPQExpBuffer(&str); return -1; }
-        if ((rc = setenv("UV_THREADPOOL_SIZE", str.data, 1))) { FATAL("setenv = %s\n", strerror(rc)); termPQExpBuffer(&str); return rc; }
-        termPQExpBuffer(&str);
-    }
     uv_loop_t loop;
     if ((rc = uv_loop_init(&loop))) { FATAL("uv_loop_init = %s\n", uv_strerror(rc)); return rc; }
     int thread_count = count;
