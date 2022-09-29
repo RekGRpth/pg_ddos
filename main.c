@@ -53,7 +53,7 @@ static void ddos_select(ddos_t *ddos) {
 }
 
 static void ddos_success(ddos_t *ddos, PGresult *res) {
-    static PQprintOpt po = {
+    static const PQprintOpt po = {
         .header = true,
         .align = true,
         .standard = false,
