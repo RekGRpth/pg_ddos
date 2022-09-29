@@ -1,4 +1,5 @@
 #include <errno.h> // errno
+#include <postgresql/libpq-fe.h> // PQ*, PG*
 #include <stdio.h> // fprintf, stdout
 #include <stdlib.h> // malloc, realloc, calloc, free, getenv, setenv, atoi, size_t
 #include <string.h> // strerror
@@ -27,14 +28,35 @@ extern void appendPQExpBuffer(PQExpBuffer str, const char *fmt,...);
 #define PQExpBufferDataBroken(buf)	\
 	((buf).maxlen == 0)
 
+typedef struct {
+    uv_poll_t poll;
+    PGconn *conn;
+} postgres_t;
+
 static void ddos_on_start(void *arg) { // void (*uv_thread_cb)(void* arg)
-    DEBUG("arg");
-    /*uv_loop_t loop;
+    //DEBUG("arg");
+    uv_loop_t *loop = arg;
+    char *conninfo = getenv("DDOS_POSTGRES_CONNINFO"); // char *getenv(const char *name)
+    if (!conninfo) conninfo = "postgresql://localhost?application_name=ddos";
+    char *ddos_postgres_count = getenv("DDOS_POSTGRES_COUNT"); // char *getenv(const char *name);
+    int count = 1;
+    if (ddos_postgres_count) count = atoi(ddos_postgres_count);
+    if (count < 1) count = 1;
+    postgres_t *postgres;
+    uv_os_sock_t postgres_sock;
     int error;
-    if ((error = uv_loop_init(&loop))) { FATAL("uv_loop_init = %s", uv_strerror(error)); return; } // int uv_loop_init(uv_loop_t* loop)
-    if ((error = uv_run(&loop, UV_RUN_DEFAULT))) { FATAL("uv_run = %s", uv_strerror(error)); return; } // int uv_run(uv_loop_t* loop, uv_run_mode mode)
-    if ((error = uv_loop_close(&loop))) { FATAL("uv_loop_close = %s", uv_strerror(error)); return; } // int uv_loop_close(uv_loop_t* loop)
-    */
+    for (int i = 0; i < count; i++) {
+        if (!(postgres = malloc(sizeof(*postgres)))) { ERROR("!malloc"); continue; }
+        if (PQstatus(postgres->conn = PQconnectStart(conninfo)) == CONNECTION_BAD) { ERROR("PQstatus = CONNECTION_BAD and %s", PQerrorMessage(postgres->conn)); goto PQfinish; }
+        if ((postgres_sock = PQsocket(postgres->conn)) < 0) { ERROR("PQsocket < 0"); goto PQfinish; }
+        if ((error = uv_poll_init_socket(loop, &postgres->poll, postgres_sock))) { ERROR("uv_poll_init_socket = %s", uv_strerror(error)); goto PQfinish; } // int uv_poll_init_socket(uv_loop_t* loop, uv_poll_t* handle, uv_os_sock_t socket)
+        postgres->poll.data = postgres;
+        if ((error = uv_poll_start(&postgres->poll, UV_WRITABLE, postgres_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(error)); goto PQfinish; } // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
+        continue;
+PQfinish:
+        PQfinish(postgres->conn);
+        free(postgres);
+    }
 }
 
 int main(int argc, char **argv) {
