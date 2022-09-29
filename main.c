@@ -28,12 +28,13 @@ extern void appendPQExpBuffer(PQExpBuffer str, const char *fmt,...);
 	((buf).maxlen == 0)
 
 static void server_on_start(void *arg) { // void (*uv_thread_cb)(void* arg)
-    DEBUG("arg=%i", (int)(long)arg);
-    uv_loop_t loop;
+    DEBUG("arg");
+    /*uv_loop_t loop;
     int error;
     if ((error = uv_loop_init(&loop))) { FATAL("uv_loop_init = %s", uv_strerror(error)); return; } // int uv_loop_init(uv_loop_t* loop)
     if ((error = uv_run(&loop, UV_RUN_DEFAULT))) { FATAL("uv_run = %s", uv_strerror(error)); return; } // int uv_run(uv_loop_t* loop, uv_run_mode mode)
     if ((error = uv_loop_close(&loop))) { FATAL("uv_loop_close = %s", uv_strerror(error)); return; } // int uv_loop_close(uv_loop_t* loop)
+    */
 }
 
 int main(int argc, char **argv) {
@@ -58,12 +59,13 @@ int main(int argc, char **argv) {
     char *ddos_thread_count = getenv("DDOS_THREAD_COUNT"); // char *getenv(const char *name);
     if (ddos_thread_count) thread_count = atoi(ddos_thread_count);
     if (thread_count < 1) thread_count = count;
-    if (thread_count == 1) server_on_start((void *)(long)thread_count);
+    if (thread_count == 1) server_on_start((void *)&loop);
     else {
         uv_thread_t tid[thread_count];
-        for (int i = 0; i < thread_count; i++) if ((error = uv_thread_create(&tid[i], server_on_start, (void *)(long)i))) { FATAL("uv_thread_create = %s", uv_strerror(error)); return error; } // int uv_thread_create(uv_thread_t* tid, uv_thread_cb entry, void* arg)
+        for (int i = 0; i < thread_count; i++) if ((error = uv_thread_create(&tid[i], server_on_start, (void *)&loop))) { FATAL("uv_thread_create = %s", uv_strerror(error)); return error; } // int uv_thread_create(uv_thread_t* tid, uv_thread_cb entry, void* arg)
         for (int i = 0; i < thread_count; i++) if ((error = uv_thread_join(&tid[i]))) { FATAL("uv_thread_join = %s", uv_strerror(error)); return error; } // int uv_thread_join(uv_thread_t *tid)
     }
+    if ((error = uv_run(&loop, UV_RUN_DEFAULT))) { FATAL("uv_run = %s", uv_strerror(error)); return error; } // int uv_run(uv_loop_t* loop, uv_run_mode mode)
     if ((error = uv_loop_close(&loop))) { FATAL("uv_loop_close = %s", uv_strerror(error)); return error; } // int uv_loop_close(uv_loop_t* loop)
     return error;
 }
