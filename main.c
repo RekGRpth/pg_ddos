@@ -32,32 +32,32 @@ extern void appendPQExpBuffer(PQExpBuffer str, const char *fmt,...);
 typedef struct {
     uv_poll_t poll;
     PGconn *conn;
-} postgres_t;
+} ddos_t;
 
 static void ddos_notice_processor(void *arg, const char *message) {
     DEBUG("PGRES_NONFATAL_ERROR: %s", message);
 }
 
-static void postgres_finish(postgres_t *postgres) {
-    PQfinish(postgres->conn);
-    free(postgres);
+static void ddos_finish(ddos_t *ddos) {
+    PQfinish(ddos->conn);
+    free(ddos);
 }
 
-static void postgres_reset(postgres_t *postgres);
+static void ddos_reset(ddos_t *ddos);
 
-static void postgres_error(postgres_t *postgres, PGresult *res) {
+static void ddos_error(ddos_t *ddos, PGresult *res) {
     //char *message = PQresultErrorMessage(res); // char *PQresultErrorMessage(const PGresult *res)
     ERROR("PGRES_FATAL_ERROR: %s", PQresultErrorMessage(res));
-    //if (postgres_socket(postgres)) { FATAL("postgres_socket\n"); return; }
+    //if (ddos_socket(ddos)) { FATAL("ddos_socket\n"); return; }
     //char *sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE); // char *PQresultErrorField(const PGresult *res, int fieldcode)
-    //if (postgres_connection_error(sqlstate)) return;
-    //request_t *request = postgres->request;
+    //if (ddos_connection_error(sqlstate)) return;
+    //request_t *request = ddos->request;
 //    DEBUG("sqlstate=%s\n", sqlstate);
-    //if (postgres_code_body(request, postgres_sqlstate_to_code(sqlstate), message, strlen(message))) FATAL("postgres_code_body\n");
+    //if (ddos_code_body(request, ddos_sqlstate_to_code(sqlstate), message, strlen(message))) FATAL("ddos_code_body\n");
 }
 
-static void postgres_success(postgres_t *postgres, PGresult *res) {
-//    DEBUG("res=%p, postgres=%p\n", res, postgres);
+static void ddos_success(ddos_t *ddos, PGresult *res) {
+//    DEBUG("res=%p, ddos=%p\n", res, ddos);
     char *value;
     if ((value = PQcmdStatus(res)) && strlen(value)) DEBUG("PGRES_TUPLES_OK and %s", value);
     else DEBUG("PGRES_TUPLES_OK");
@@ -77,7 +77,7 @@ static void postgres_success(postgres_t *postgres, PGresult *res) {
     //for (int col = 0; col < PQnfields(res); col++) {
     //    if (col > 0) fprintf(stdout, "\t");
     //}
-//    request_t *request = postgres->request;
+//    request_t *request = ddos->request;
 //    char *error = NULL;
 //    if (PQntuples(res) != 1 || PQnfields(res) != 2) error = "1 row and 2 cols expected"; // int PQntuples(const PGresult *res); int PQnfields(const PGresult *res);
 //    int info = PQfnumber(res, "info");
@@ -86,84 +86,84 @@ static void postgres_success(postgres_t *postgres, PGresult *res) {
 //    int body = PQfnumber(res, "body");
 //    if (body == -1) error = "body col expected";
 //    if (PQftype(res, body) != BYTEAOID) error = "body col must be bytea"; // Oid PQftype(const PGresult *res, int column_number);
-//    if (error) { if (request) postgres_error_code_message_length(postgres, HTTP_STATUS_NO_RESPONSE, error, strlen(error)); return; }
-//    if (postgres_info_body(request, PQgetvalue(res, 0, info), PQgetlength(res, 0, info), PQgetvalue(res, 0, body), PQgetlength(res, 0, body))) FATAL("postgres_info_body\n");
+//    if (error) { if (request) ddos_error_code_message_length(ddos, HTTP_STATUS_NO_RESPONSE, error, strlen(error)); return; }
+//    if (ddos_info_body(request, PQgetvalue(res, 0, info), PQgetlength(res, 0, info), PQgetvalue(res, 0, body), PQgetlength(res, 0, body))) FATAL("ddos_info_body\n");
 }
 
-static void postgres_on_poll(uv_poll_t *handle, int status, int events) { // void (*uv_poll_cb)(uv_poll_t* handle, int status, int events)
+static void ddos_on_poll(uv_poll_t *handle, int status, int events) { // void (*uv_poll_cb)(uv_poll_t* handle, int status, int events)
 //    DEBUG("handle=%p, status=%i, events=%i\n", handle, status, events);
-    postgres_t *postgres = handle->data;
-    if (status) { ERROR("status = %i", status); postgres_reset(postgres); return; }
-    if (PQsocket(postgres->conn) < 0) { ERROR("PQsocket < 0"); postgres_reset(postgres); return; } // int PQsocket(const PGconn *conn)
-//    DEBUG("PQstatus(postgres->conn)=%i\n", PQstatus(postgres->conn));
+    ddos_t *ddos = handle->data;
+    if (status) { ERROR("status = %i", status); ddos_reset(ddos); return; }
+    if (PQsocket(ddos->conn) < 0) { ERROR("PQsocket < 0"); ddos_reset(ddos); return; } // int PQsocket(const PGconn *conn)
+//    DEBUG("PQstatus(ddos->conn)=%i\n", PQstatus(ddos->conn));
     int error;
-    switch (PQstatus(postgres->conn)) { // ConnStatusType PQstatus(const PGconn *conn)
+    switch (PQstatus(ddos->conn)) { // ConnStatusType PQstatus(const PGconn *conn)
         case CONNECTION_OK: /*DEBUG("CONNECTION_OK\n"); */break;
-        case CONNECTION_BAD: ERROR("PQstatus = CONNECTION_BAD and %s", PQerrorMessage(postgres->conn)); postgres_reset(postgres); return; // char *PQerrorMessage(const PGconn *conn)
-        default: switch (PQconnectPoll(postgres->conn)) { // PostgresPollingStatusType PQconnectPoll(PGconn *conn)
+        case CONNECTION_BAD: ERROR("PQstatus = CONNECTION_BAD and %s", PQerrorMessage(ddos->conn)); ddos_reset(ddos); return; // char *PQerrorMessage(const PGconn *conn)
+        default: switch (PQconnectPoll(ddos->conn)) { // PostgresPollingStatusType PQconnectPoll(PGconn *conn)
             case PGRES_POLLING_ACTIVE: return;
-            case PGRES_POLLING_FAILED: ERROR("PGRES_POLLING_FAILED"); postgres_reset(postgres); return;
-            case PGRES_POLLING_OK: postgres_select(postgres); break;
-            case PGRES_POLLING_READING: if ((error = uv_poll_start(&postgres->poll, UV_READABLE, postgres_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(error)); postgres_finish(postgres); } return; // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
-            case PGRES_POLLING_WRITING: if ((error = uv_poll_start(&postgres->poll, UV_WRITABLE, postgres_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(error)); postgres_finish(postgres); } return; // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
+            case PGRES_POLLING_FAILED: ERROR("PGRES_POLLING_FAILED"); ddos_reset(ddos); return;
+            case PGRES_POLLING_OK: ddos_select(ddos); break;
+            case PGRES_POLLING_READING: if ((error = uv_poll_start(&ddos->poll, UV_READABLE, ddos_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(error)); ddos_finish(ddos); } return; // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
+            case PGRES_POLLING_WRITING: if ((error = uv_poll_start(&ddos->poll, UV_WRITABLE, ddos_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(error)); ddos_finish(ddos); } return; // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
         }
     }
     if (events & UV_READABLE) {
-        if (!PQconsumeInput(postgres->conn)) { FATAL("!PQconsumeInput and %s", PQerrorMessage(postgres->conn)); postgres_reset(postgres); return; } // int PQconsumeInput(PGconn *conn); char *PQerrorMessage(const PGconn *conn)
-        //if (PQisBusy(postgres->conn)) return; // int PQisBusy(PGconn *conn)
-        for (PGresult *res; (res = PQgetResult(postgres->conn)); PQclear(res)) switch (PQresultStatus(res)) { // PGresult *PQgetResult(PGconn *conn); void PQclear(PGresult *res); ExecStatusType PQresultStatus(const PGresult *res)
-            case PGRES_TUPLES_OK: postgres_success(postgres, res); break;
-            case PGRES_FATAL_ERROR: postgres_error(postgres, res); break;
+        if (!PQconsumeInput(ddos->conn)) { FATAL("!PQconsumeInput and %s", PQerrorMessage(ddos->conn)); ddos_reset(ddos); return; } // int PQconsumeInput(PGconn *conn); char *PQerrorMessage(const PGconn *conn)
+        //if (PQisBusy(ddos->conn)) return; // int PQisBusy(PGconn *conn)
+        for (PGresult *res; (res = PQgetResult(ddos->conn)); PQclear(res)) switch (PQresultStatus(res)) { // PGresult *PQgetResult(PGconn *conn); void PQclear(PGresult *res); ExecStatusType PQresultStatus(const PGresult *res)
+            case PGRES_TUPLES_OK: ddos_success(ddos, res); break;
+            case PGRES_FATAL_ERROR: ddos_error(ddos, res); break;
             default: break;
         }
-        for (PGnotify *notify; (notify = PQnotifies(postgres->conn)); PQfreemem(notify)) { // PGnotify *PQnotifies(PGconn *conn); void PQfreemem(void *ptr)
+        for (PGnotify *notify; (notify = PQnotifies(ddos->conn)); PQfreemem(notify)) { // PGnotify *PQnotifies(PGconn *conn); void PQfreemem(void *ptr)
             DEBUG("Asynchronous notification \"%s\" with payload \"%s\" received from server process with PID %d.", notify->relname, notify->extra, notify->be_pid);
         }
-        //if (postgres_push(postgres)) FATAL("postgres_push\n");
+        //if (ddos_push(ddos)) FATAL("ddos_push\n");
     }
-    //if (events & UV_WRITABLE) switch (PQflush(postgres->conn)) { // int PQflush(PGconn *conn);
-    //    case 0: /*DEBUG("No data left to send\n"); */if ((error = uv_poll_start(&postgres->poll, UV_READABLE, postgres_on_poll))) FATAL("uv_poll_start = %s", uv_strerror(error)); break; // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
+    //if (events & UV_WRITABLE) switch (PQflush(ddos->conn)) { // int PQflush(PGconn *conn);
+    //    case 0: /*DEBUG("No data left to send\n"); */if ((error = uv_poll_start(&ddos->poll, UV_READABLE, ddos_on_poll))) FATAL("uv_poll_start = %s", uv_strerror(error)); break; // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
     //    case 1: DEBUG("More data left to send"); break;
     //    default: FATAL("error sending query"); break;
     //}
 }
 
-static void postgres_reset(postgres_t *postgres) {
-//    DEBUG("postgres=%p, postgres->request=%p\n", postgres, postgres->request);
+static void ddos_reset(ddos_t *ddos) {
+//    DEBUG("ddos=%p, ddos->request=%p\n", ddos, ddos->request);
     int error;
-    if (uv_is_active((uv_handle_t *)&postgres->poll)) if ((error = uv_poll_stop(&postgres->poll))) { ERROR("uv_poll_stop = %s", uv_strerror(error)); postgres_finish(postgres); return; } // int uv_is_active(const uv_handle_t* handle); int uv_poll_stop(uv_poll_t* poll)
-    //if (postgres->request) if (request_push(postgres->request)) FATAL("request_push\n");
-    //postgres->request = NULL;
-    //pointer_remove(&postgres->server_pointer);
-//    PQfinish(postgres->conn);
-//    if ((error = postgres_connect(postgres->poll.loop, postgres))) { FATAL("postgres_connect\n"); postgres_reset(postgres); return error; }
-    if (!PQresetStart(postgres->conn)) { ERROR("!PQresetStart and %s", PQerrorMessage(postgres->conn)); postgres_finish(postgres); return; } // int PQresetStart(PGconn *conn);
-    if ((postgres->poll.io_watcher.fd = PQsocket(postgres->conn)) < 0) { ERROR("PQsocket < 0"); postgres_finish(postgres); postgres_finish(postgres); return; }
-    if ((error = uv_poll_start(&postgres->poll, UV_WRITABLE, postgres_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(error)); postgres_finish(postgres); return; } // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
+    if (uv_is_active((uv_handle_t *)&ddos->poll)) if ((error = uv_poll_stop(&ddos->poll))) { ERROR("uv_poll_stop = %s", uv_strerror(error)); ddos_finish(ddos); return; } // int uv_is_active(const uv_handle_t* handle); int uv_poll_stop(uv_poll_t* poll)
+    //if (ddos->request) if (request_push(ddos->request)) FATAL("request_push\n");
+    //ddos->request = NULL;
+    //pointer_remove(&ddos->server_pointer);
+//    PQfinish(ddos->conn);
+//    if ((error = ddos_connect(ddos->poll.loop, ddos))) { FATAL("ddos_connect\n"); ddos_reset(ddos); return error; }
+    if (!PQresetStart(ddos->conn)) { ERROR("!PQresetStart and %s", PQerrorMessage(ddos->conn)); ddos_finish(ddos); return; } // int PQresetStart(PGconn *conn);
+    if ((ddos->poll.io_watcher.fd = PQsocket(ddos->conn)) < 0) { ERROR("PQsocket < 0"); ddos_finish(ddos); ddos_finish(ddos); return; }
+    if ((error = uv_poll_start(&ddos->poll, UV_WRITABLE, ddos_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(error)); ddos_finish(ddos); return; } // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
 }
 
 static void ddos_on_start(void *arg) { // void (*uv_thread_cb)(void* arg)
     //DEBUG("arg");
     uv_loop_t *loop = arg;
-    char *conninfo = getenv("DDOS_POSTGRES_CONNINFO"); // char *getenv(const char *name)
+    char *conninfo = getenv("DDOS_ddos_CONNINFO"); // char *getenv(const char *name)
     if (!conninfo) conninfo = "postgresql://localhost?application_name=ddos";
-    char *ddos_postgres_count = getenv("DDOS_POSTGRES_COUNT"); // char *getenv(const char *name);
+    char *ddos_ddos_count = getenv("DDOS_ddos_COUNT"); // char *getenv(const char *name);
     int count = 1;
-    if (ddos_postgres_count) count = atoi(ddos_postgres_count);
+    if (ddos_ddos_count) count = atoi(ddos_ddos_count);
     if (count < 1) count = 1;
-    postgres_t *postgres;
-    //uv_os_sock_t postgres_sock;
+    ddos_t *ddos;
+    //uv_os_sock_t ddos_sock;
     int error;
     for (int i = 0; i < count; i++) {
-        if (!(postgres = malloc(sizeof(*postgres)))) { ERROR("!malloc"); continue; }
-        if (PQstatus(postgres->conn = PQconnectStart(conninfo)) == CONNECTION_BAD) { ERROR("PQstatus = CONNECTION_BAD and %s", PQerrorMessage(postgres->conn)); postgres_finish(postgres); continue; }
-        if (PQsetnonblocking(postgres->conn, 1) == -1) { ERROR("PQsetnonblocking == -1 and %s", PQerrorMessage(postgres->conn)); postgres_finish(postgres); continue; }
-        //if ((postgres_sock = PQsocket(postgres->conn)) < 0) { ERROR("PQsocket < 0"); postgres_finish(postgres); continue; }
-        if ((postgres->poll.io_watcher.fd = PQsocket(postgres->conn)) < 0) { ERROR("PQsocket < 0"); postgres_finish(postgres); postgres_finish(postgres); continue; }
-        (void)PQsetNoticeProcessor(postgres->conn, ddos_notice_processor, postgres);
-        if ((error = uv_poll_init_socket(loop, &postgres->poll, postgres->poll.io_watcher.fd))) { ERROR("uv_poll_init_socket = %s", uv_strerror(error)); postgres_finish(postgres); continue; } // int uv_poll_init_socket(uv_loop_t* loop, uv_poll_t* handle, uv_os_sock_t socket)
-        postgres->poll.data = postgres;
-        if ((error = uv_poll_start(&postgres->poll, UV_WRITABLE, postgres_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(error)); postgres_finish(postgres); continue; } // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
+        if (!(ddos = malloc(sizeof(*ddos)))) { ERROR("!malloc"); continue; }
+        if (PQstatus(ddos->conn = PQconnectStart(conninfo)) == CONNECTION_BAD) { ERROR("PQstatus = CONNECTION_BAD and %s", PQerrorMessage(ddos->conn)); ddos_finish(ddos); continue; }
+        if (PQsetnonblocking(ddos->conn, 1) == -1) { ERROR("PQsetnonblocking == -1 and %s", PQerrorMessage(ddos->conn)); ddos_finish(ddos); continue; }
+        //if ((ddos_sock = PQsocket(ddos->conn)) < 0) { ERROR("PQsocket < 0"); ddos_finish(ddos); continue; }
+        if ((ddos->poll.io_watcher.fd = PQsocket(ddos->conn)) < 0) { ERROR("PQsocket < 0"); ddos_finish(ddos); ddos_finish(ddos); continue; }
+        (void)PQsetNoticeProcessor(ddos->conn, ddos_notice_processor, ddos);
+        if ((error = uv_poll_init_socket(loop, &ddos->poll, ddos->poll.io_watcher.fd))) { ERROR("uv_poll_init_socket = %s", uv_strerror(error)); ddos_finish(ddos); continue; } // int uv_poll_init_socket(uv_loop_t* loop, uv_poll_t* handle, uv_os_sock_t socket)
+        ddos->poll.data = ddos;
+        if ((error = uv_poll_start(&ddos->poll, UV_WRITABLE, ddos_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(error)); ddos_finish(ddos); continue; } // int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
     }
 }
 
