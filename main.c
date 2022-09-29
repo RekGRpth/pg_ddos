@@ -87,23 +87,21 @@ static void ddos_on_poll(uv_poll_t *handle, int status, int events) {
         default: switch (PQconnectPoll(ddos->conn)) {
             case PGRES_POLLING_ACTIVE: return;
             case PGRES_POLLING_FAILED: ERROR("PGRES_POLLING_FAILED"); ddos_reset(ddos); return;
-            case PGRES_POLLING_OK: ddos_select(ddos); break;
+            case PGRES_POLLING_OK: break;
             case PGRES_POLLING_READING: if ((rc = uv_poll_start(&ddos->poll, UV_READABLE, ddos_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(rc)); ddos_finish(ddos); } return;
             case PGRES_POLLING_WRITING: if ((rc = uv_poll_start(&ddos->poll, UV_WRITABLE, ddos_on_poll))) { ERROR("uv_poll_start = %s", uv_strerror(rc)); ddos_finish(ddos); } return;
         }
     }
-    if (events & UV_READABLE) {
-        if (!PQconsumeInput(ddos->conn)) { FATAL("!PQconsumeInput and %s", PQerrorMessage(ddos->conn)); ddos_reset(ddos); return; }
-        for (PGresult *res; (res = PQgetResult(ddos->conn)); PQclear(res)) switch (PQresultStatus(res)) {
-            case PGRES_TUPLES_OK: ddos_success(ddos, res); break;
-            case PGRES_FATAL_ERROR: ddos_error(ddos, res); break;
-            default: break;
-        }
-        for (PGnotify *notify; (notify = PQnotifies(ddos->conn)); PQfreemem(notify)) {
-            DEBUG("Asynchronous notification \"%s\" with payload \"%s\" received from server process with PID %d.", notify->relname, notify->extra, notify->be_pid);
-        }
-        ddos_select(ddos);
+    if (!PQconsumeInput(ddos->conn)) { FATAL("!PQconsumeInput and %s", PQerrorMessage(ddos->conn)); ddos_reset(ddos); return; }
+    for (PGresult *res; (res = PQgetResult(ddos->conn)); PQclear(res)) switch (PQresultStatus(res)) {
+        case PGRES_TUPLES_OK: ddos_success(ddos, res); break;
+        case PGRES_FATAL_ERROR: ddos_error(ddos, res); break;
+        default: break;
     }
+    for (PGnotify *notify; (notify = PQnotifies(ddos->conn)); PQfreemem(notify)) {
+        DEBUG("Asynchronous notification \"%s\" with payload \"%s\" received from server process with PID %d.", notify->relname, notify->extra, notify->be_pid);
+    }
+    ddos_select(ddos);
 }
 
 static void ddos_on_start(void *arg) {
