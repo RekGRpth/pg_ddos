@@ -78,7 +78,6 @@ static void ddos_reset(ddos_t *ddos) {
 
 static void ddos_on_poll(uv_poll_t *handle, int status, int events) {
     ddos_t *ddos = handle->data;
-    if (status) { ERROR("status = %i\n", status); ddos_finish(ddos); return; }
     if (PQsocket(ddos->conn) < 0) { ERROR("PQsocket < 0\n"); ddos_reset(ddos); return; }
     int rc;
     switch (PQstatus(ddos->conn)) {
@@ -86,7 +85,7 @@ static void ddos_on_poll(uv_poll_t *handle, int status, int events) {
         case CONNECTION_BAD: ERROR("PQstatus = CONNECTION_BAD and %s", PQerrorMessage(ddos->conn)); ddos_reset(ddos); return;
         default: switch (PQconnectPoll(ddos->conn)) {
             case PGRES_POLLING_ACTIVE: return;
-            case PGRES_POLLING_FAILED: ERROR("PGRES_POLLING_FAILED and %s", PQerrorMessage(ddos->conn)); ddos_reset(ddos); return;
+            case PGRES_POLLING_FAILED: ERROR("PGRES_POLLING_FAILED and %s", PQerrorMessage(ddos->conn)); ddos_finish(ddos); return;
             case PGRES_POLLING_OK: break;
             case PGRES_POLLING_READING: if ((rc = uv_poll_start(&ddos->poll, UV_READABLE, ddos_on_poll))) { ERROR("uv_poll_start = %s\n", uv_strerror(rc)); ddos_finish(ddos); } return;
             case PGRES_POLLING_WRITING: if ((rc = uv_poll_start(&ddos->poll, UV_WRITABLE, ddos_on_poll))) { ERROR("uv_poll_start = %s\n", uv_strerror(rc)); ddos_finish(ddos); } return;
